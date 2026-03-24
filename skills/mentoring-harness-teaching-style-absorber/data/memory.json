@@ -1,0 +1,45 @@
+{
+  "principles": [],
+  "personas": [
+    {
+      "id": "junior-20260309-191216-3e6683",
+      "name": "Kaito Mori",
+      "gender": "male",
+      "age": 24,
+      "career_stage": "junior transfer",
+      "big_five": {
+        "openness": 4,
+        "conscientiousness": 4,
+        "extraversion": 2,
+        "agreeableness": 4,
+        "neuroticism": 3
+      },
+      "learning_style": "practice-first",
+      "strengths": [
+        "persistence",
+        "debugging patience",
+        "team communication"
+      ],
+      "weaknesses": [
+        "slows down on ambiguity",
+        "needs help turning feedback into action order"
+      ],
+      "background": "Started in infrastructure operations and support, with one year of hands-on experience in server monitoring, incident response, and routine operations. Has not studied SAP yet and is transitioning toward application engineering work.",
+      "motivation": "growth",
+      "teaching_preferences": [
+        "concrete examples",
+        "small milestones",
+        "written summaries"
+      ],
+      "created_at": "2026-03-09T19:12:16",
+      "domain_context": {
+        "sap_experience": "none",
+        "infrastructure_experience_years": 1,
+        "target_area": "SAP engineering",
+        "notes": "Needs fundamentals first: SAP landscape, terminology, transactions, transports, ABAP basics, and operational workflows."
+      }
+    }
+  ],
+  "progress": [],
+  "reviews": []
+}

@@ -1,0 +1,7 @@
+﻿interface:
+ display_name: "Mentoring Harness"
+ short_description: "Create junior personas and adapt mentoring plans."
+ default_prompt: "Use $mentoring-harness-teaching-style-absorber to create a junior persona and tailor a teaching or review plan."
+
+policy:
+ allow_implicit_invocation: true
