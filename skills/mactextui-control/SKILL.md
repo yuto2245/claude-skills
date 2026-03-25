@@ -1,254 +1,96 @@
 ---
 name: mactextui-control
-description: |
-  macOSアプリをスクリーンショット不要・低トークンで操作するスキル。
-  mactextui-control MCPが接続されているときに使う。
-
-  以下の言葉が出たら積極的に使うこと:
-  - 「〇〇アプリを開いて」「〇〇を操作して」「〇〇を再生/停止して」
-  - 「音楽を再生して」「次の曲」「音量を上げて/下げて」「一時停止」「今の曲は？」
-  - 「Safariで〇〇を開いて」「新しいタブ」「URLを開いて」
-  - 「メモに書いて」「メモを作って」「カレンダーの予定」
-  - 「Finderで開いて」「フォルダを開いて」
-  - 「LINEを開いて」「Obsidianを開いて」
-  - 「アプリのボタンをクリックして」「テキストを入力して」
-  - 「Macの〇〇アプリで〇〇して」「ウィンドウの〇〇を押して」
-  - computer-useがポリシーでブロックされたアプリの操作
-  - computer-useよりトークンを節約したい操作全般
-
-  computer-useのスクリーンショット（約6,000 tokens/枚）を使わず、
-  テキストベースのAX APIとAppleScriptで操作するため大幅にトークンを節約できる。
+description: >
+  MacのネイティブアプリをAppleScript・AXアクセシビリティAPIで操作するスキル。
+  以下のような言葉が出たら積極的に使うこと:
+  - 「〇〇を開いて」「〇〇アプリを起動して」「アプリを切り替えて」
+  - 「Safariで〇〇を開いて」「このURLをSafariで表示して」
+  - 「音楽をかけて」「次の曲に」「Musicを操作して」「再生して/止めて」
+  - 「クリックして」「ボタンを押して」「入力して」
+  - 「ウィンドウの要素を取得して」「UIツリーを見て」
+  ブラウザ操作でSafariが対象の場合は Chrome MCP ではなくこのスキルを使うこと。
 ---
 
-# mactextui-control 操作ガイド
+# mactextui-control スキル
 
-## 原理：なぜこのツールが存在するか
+MacのネイティブアプリをMCPツール経由でテキストベースに操作する。
+スクリーンショット不要・ピクセル座標不要で、AXツリーとAppleScriptを使って確実に操作する。
 
-macOSアプリを操作するには通常2つの方法がある：
+## 利用できるツール
 
-1. **computer-use（スクリーンショット方式）**: 画面を撮影→画像解析→座標クリック。毎回約6,000トークン消費。ポリシーでブロックされるアプリもある（例: ミュージック）。
-2. **mactextui-control（テキストAPI方式）**: macOS Accessibility APIとAppleScript辞書を使い、テキストベースでUI構造を取得・操作する。50〜800トークン/回。ポリシー制限なし。
+| ツール | 用途 |
+|---|---|
+| get_app_list | 起動中のアプリ一覧を取得 |
+| focus_app | 指定アプリを前面に表示（未起動なら起動も行う） |
+| get_ui_tree | アプリのUI要素ツリーを取得（ボタン・フィールドの座標含む） |
+| find_element | ラベル名でUI要素を検索して座標を返す |
+| perform_action | クリック・入力・キー操作・AppleScript実行 |
 
-つまり「目で見て操作する」のではなく「アプリに直接話しかける」方式。
+## 基本の操作パターン
 
-## ツール一覧と使い分け
+### 1. アプリを起動・前面表示する
+focus_app(app_name="Safari")
+focus_app(app_name="ミュージック")
+まず get_app_list で起動状態を確認してから focus_app を呼ぶと確実。
 
-| ツール | 用途 | トークン消費 |
+### 2. SafariでURLを開く
+Chrome MCPは使わない。AppleScriptで直接Safariを操作する。
+perform_action(action="applescript", text="tell application 'Safari'
+activate
+open location 'https://example.com'
+end tell")
+
+### 3. UI要素をクリックする
+find_element(label="送信", app_name="Safari")
+perform_action(action="click", x=100, y=200)
+
+### 4. テキストを入力する
+perform_action(action="click", x=入力欄のx, y=入力欄のy)
+perform_action(action="type", text="入力したい文字")
+
+### 5. キーボードショートカット
+perform_action(action="key", key="cmd+c")
+perform_action(action="key", key="return")
+perform_action(action="key", key="escape")
+
+## Musicアプリの操作
+
+### プレイリスト一覧を取得
+perform_action(action="applescript", text="tell application 'Music'
+return name of every playlist as list
+end tell")
+
+### 再生開始（プレイリスト指定）
+perform_action(action="applescript", text="tell application 'Music'
+activate
+play playlist 'お気に入りの曲'
+delay 1
+return (name of current track) & ' - ' & (artist of current track)
+end tell")
+
+### 再生コントロール
+perform_action(action="applescript", app_name="Music", text="next track")
+perform_action(action="applescript", app_name="Music", text="previous track")
+perform_action(action="applescript", app_name="Music", text="stop")
+perform_action(action="applescript", app_name="Music", text="playpause")
+
+## よくあるエラーと対処
+
+| エラー | 原因 | 対処 |
 |---|---|---|
-| `perform_action (applescript)` | アプリへの直接命令（再生・停止・保存・情報取得など） | ◎ 最軽量 |
-| `find_element` | ボタン名で座標を検索してクリック | ○ 軽量 |
-| `focus_app` | アプリを前面に出す | ○ 軽量 |
-| `get_app_list` | 起動中アプリ一覧の確認 | ○ 軽量 |
-| `get_ui_tree` | アプリのUI要素全体を取得 | △ アプリ次第で重い |
+| App not found | アプリ未起動 or 名前違い | get_app_list で正式名を確認してから再試行 |
+| Accessibility permission required | アクセシビリティ権限なし | AppleScript に切り替える |
+| player state is stopped | Musicにトラックなし | playlist を明示して play する |
+| Chrome MCP を使ってしまった | Safariが対象なのに間違えた | AppleScript の open location で Safari に直接URLを渡す |
 
-## 操作の原則：applescriptを最優先にする
+## 使い分けの判断
 
-**フォーカス不要・サンドボックス対応・最軽量**のため、まず `applescript` アクションで試みること。
+- Safari/ネイティブアプリ操作 → このスキル（perform_action + AppleScript）
+- Chromeの特定タブを操作 → Chrome MCP（mcp__Claude_in_Chrome__*）
+- ファイル操作・コード実行 → Bash / Read / Write ツール
 
-```
-# 例: Musicを再生
-perform_action(action="applescript", app_name="Music", text="play")
+## AppleScript 実行のコツ
 
-# 例: Musicを一時停止
-perform_action(action="applescript", app_name="Music", text="pause")
-
-# 例: Safariで新しいタブを開く
-perform_action(action="applescript", app_name="Safari", text="make new document")
-```
-
-### なぜapplescriptが優先なのか
-
-macOSのアプリには2種類の操作経路がある：
-
-1. **System Events経由（AX API）** — ボタンのクリックやキー送信。フォーカスが必要で、Musicのようなサンドボックスアプリでは使えない場合がある
-2. **AppleScript辞書コマンド** — アプリに直接話しかける方式。フォーカス不要で、サンドボックスアプリにも届く
-
-`tell application "Music" to play` は、Musicが画面に出ていなくても、他のアプリがフォーカスを持っていても動作する。
-
-## computer-useとの使い分け判断フロー
-
-```
-ユーザーがアプリ操作を要求
-  │
-  ├─ AppleScriptコマンドで実現できる？
-  │    YES → perform_action(applescript) を使う【最優先】
-  │
-  ├─ ボタン名/ラベルが分かっている？
-  │    YES → find_element → perform_action(click) を使う
-  │
-  ├─ UIの構造把握が必要？
-  │    YES → get_ui_tree → 対象特定 → click
-  │
-  ├─ 上記すべて失敗 or 視覚的な位置確認が必要？
-  │    → computer-use のスクリーンショット+クリックにフォールバック
-  │
-  └─ computer-useもポリシーでブロック？
-       → ユーザーに手動操作を案内
-```
-
-**computer-useを使うべきケース:**
-- 画像・動画の視覚的な確認が必要なとき
-- ドラッグ&ドロップ操作
-- アプリのUI構造が複雑でfind_elementでは特定できないとき
-- Webブラウザ内のDOM操作（→ Chrome MCPが適切）
-
-**mactextui-controlを使うべきケース:**
-- アプリへの命令（再生、保存、開く、閉じるなど）
-- 情報取得（今の曲名、ウィンドウタイトルなど）
-- computer-useがポリシーでブロックされたアプリ
-- 繰り返し操作でトークンを節約したいとき
-
-## 情報取得パターン（read系）
-
-applescriptは操作だけでなく、アプリから情報を取得することもできる。
-返り値は `detail` フィールドに入る。
-
-```python
-# 今再生中の曲名
-perform_action(action="applescript", app_name="Music", text="get name of current track")
-# → {"status": "ok", "detail": "Aperture"}
-
-# 今再生中の曲のアーティスト
-perform_action(action="applescript", app_name="Music", text="get artist of current track")
-
-# Musicの再生状態
-perform_action(action="applescript", app_name="Music", text="get player state")
-# → "playing" or "paused" or "stopped"
-
-# Safariの現在のURL
-perform_action(action="applescript", app_name="Safari", text="get URL of current tab of front window")
-
-# Safariの現在のページタイトル
-perform_action(action="applescript", app_name="Safari", text="get name of front window")
-
-# Finderの最前面フォルダのパス
-perform_action(action="applescript", app_name="Finder", text="get POSIX path of (target of front Finder window as alias)")
-```
-
-## UIクリックが必要な場合（find_element → click）
-
-ボタンのクリックなどAppleScriptコマンドがない操作には `find_element` で座標を取得してクリックする。
-
-```python
-# 1. ボタンの座標を探す
-find_element(label="送信", app_name="Mail")
-# → {"found": 1, "elements": [{"label": "送信", "coords": {"x": 450, "y": 300}}]}
-
-# 2. 座標をクリック
-perform_action(action="click", x=450, y=300)
-```
-
-## キー操作（app_name指定で確実に届ける）
-
-`app_name` を指定すると、フォーカスの問題を回避して特定アプリにキーを送れる。
-
-```python
-# 例: FinderでCmd+Sを送る
-perform_action(action="key", key="command+s", app_name="Finder")
-```
-
-**注意**: `app_name` なしの `key` アクションは、実行時点でフォーカスしているアプリに届く。
-ClaudeのチャットUIとMCPが交互に動作するため、意図しないアプリに届くことがある。
-→ **常に app_name を指定すること。**
-
-## サンドボックスアプリの制限
-
-Music・App Store・写真など、Appleのサンドボックスアプリは `get_ui_tree` / `find_element` が動作しない場合がある。
-`System Events` のプロセス一覧に現れないためで、`get_app_list` では見えるのに `get_ui_tree` が "Process not found" になる。
-
-→ **解決策**: `applescript` アクションでアプリの辞書コマンドを直接呼ぶ。
-
-## エラーが出たときの対応
-
-| エラーメッセージ | 原因 | 対応 |
-|---|---|---|
-| `osascript にはキー操作の送信は許可されません (1002)` | オートメーション権限が未付与 | システム設定 → プライバシーとセキュリティ → オートメーション → osascript の System Events を ON |
-| `Process not found` | サンドボックスアプリでAX APIが使えない | `applescript` アクションに切り替える |
-| `App not found: ○○` | アプリ名が間違っている or 未起動 | `get_app_list` で正確な名前を確認。日本語名（ミュージック）と英語名（Music）両方試す |
-| `Connection refused` / タイムアウト | MCPサーバーが停止 | Claude Desktopを再起動 |
-| `command not found` (applescript) | そのアプリにそのコマンドがない | WebSearchでAppleScript辞書を調べるか、`find_element + click` に切り替え |
-
-## 権限の前提条件
-
-このMCPが動作するには以下の権限が必要：
-
-- **システム設定 → プライバシーとセキュリティ → アクセシビリティ**
-  - `osascript`: ON
-  - `Claude`: ON
-- **システム設定 → プライバシーとセキュリティ → オートメーション**
-  - `osascript` → `System Events`: ON
-
-## トークン節約のコツ
-
-- `get_ui_tree` は最後の手段にする（複雑なアプリでは数千トークン消費する可能性がある）
-- `find_element` は `get_ui_tree` より軽い（対象ラベルにマッチした要素だけ返す）
-- applescriptコマンドが分からないときは、まずアプリ名+コマンドで試す（`play`, `pause`, `next track`, `activate` など）
-- 不明なコマンドはWebSearchや `tell application "AppName" to get properties` で調べられる
-- 同じアプリへの連続操作は1回ずつ確認せず、まとめて実行する
-
-## よく使うapplescriptコマンド集
-
-### Music（ミュージック）
-```applescript
-play                          # 再生
-pause                         # 一時停止
-playpause                     # 再生/一時停止トグル
-next track                    # 次の曲
-previous track                # 前の曲
-set sound volume to 50        # 音量（0〜100）
-get name of current track     # 現在の曲名
-get artist of current track   # アーティスト名
-get album of current track    # アルバム名
-get duration of current track # 曲の長さ（秒）
-get player position           # 再生位置（秒）
-get player state              # 再生状態
-play playlist "名前"          # プレイリスト再生
-get name of every playlist    # プレイリスト一覧
-```
-
-### Safari
-```applescript
-open location "https://example.com"                    # URLを開く
-make new document                                      # 新しいウィンドウ
-get URL of current tab of front window                 # 現在のURL
-get name of front window                               # ページタイトル
-get name of every tab of front window                  # 全タブのタイトル
-set URL of current tab of front window to "https://…"  # タブのURL変更
-do JavaScript "document.title" in current tab of front window  # JS実行
-```
-
-### Finder
-```applescript
-open POSIX file "/Users/me/Downloads"          # フォルダを開く
-get POSIX path of (target of front Finder window as alias)  # 現在のパス
-get name of every item of (target of front Finder window)   # ファイル一覧
-make new Finder window                         # 新しいウィンドウ
-reveal POSIX file "/path/to/file"              # ファイルを表示
-```
-
-### メモ（Notes）
-```applescript
-make new note at folder "メモ" with properties {name:"タイトル", body:"内容"}
-get name of every note                         # ノート一覧
-get body of note "タイトル"                     # ノート内容を取得
-```
-
-### カレンダー（Calendar）
-```applescript
-get name of every calendar                     # カレンダー一覧
-get summary of every event of calendar "個人"   # イベント一覧
-```
-
-### 共通
-```applescript
-activate        # フォーカスを当てる（前面に出す）
-quit            # 終了
-get name of every window  # ウィンドウ一覧
-```
-
-### システム操作（System Events経由ではなくshellコマンド）
-```
-# 音量操作はapplescriptではなくshellで:
-# osascript -e "set volume output volume 50"
-# → perform_action(action="applescript", text="set volume output volume 50") で直接実行可
-```
+perform_action(action="applescript", app_name="アプリ名", text="コマンド") と書くと、
+自動的に tell application "アプリ名" ... end tell でラップして実行される。
+アプリをまたぐ処理は app_name を省略してフルのAppleScriptを text に書く。
