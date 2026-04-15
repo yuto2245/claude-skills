@@ -1,0 +1,14 @@
+# notebooklm-bridge スクリプト依存関係
+# Python 3.11+ を前提とする
+#
+# インストール方法:
+#   cd skills/notebooklm-bridge
+#   python3 -m venv .venv
+#   source .venv/bin/activate
+#   pip install -r requirements.txt
+
+# YAML フロントマター付き Markdown のパース・生成
+python-frontmatter==1.1.0
+
+# YAML シリアライズ（python-frontmatter の依存だが明示的に固定）
+PyYAML==6.0.2
